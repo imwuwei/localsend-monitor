@@ -327,6 +327,8 @@ func (b *Bridge) processMessage(msg *multicast.Message) {
 }
 
 // forwardToOtherInterfaces forwards the discovery message to all interfaces except the source
+// It preserves the original sender's IP address so that LocalSend clients can correctly
+// identify the device by the UDP packet's source IP.
 func (b *Bridge) forwardToOtherInterfaces(msg *multicast.Message, device *protocol.DeviceInfo) {
 	for ifaceName, sender := range b.senders {
 		// Skip the source interface
@@ -335,7 +337,10 @@ func (b *Bridge) forwardToOtherInterfaces(msg *multicast.Message, device *protoc
 		}
 
 		// Send the original multicast data to the other interface's multicast group
-		if err := sender.Send(msg.Data); err != nil {
+		// Use SendFrom to preserve the original sender's source IP address.
+		// LocalSend identifies devices by the UDP packet's source IP, so we must
+		// not replace it with the bridge's own IP.
+		if err := sender.SendFrom(msg.Data, msg.From.IP, msg.From.Port); err != nil {
 			b.logger.Warn("failed to forward message to interface",
 				"iface", ifaceName,
 				"from", msg.From.String(),
@@ -344,11 +349,12 @@ func (b *Bridge) forwardToOtherInterfaces(msg *multicast.Message, device *protoc
 			continue
 		}
 
-		b.logger.Debug("forwarded discovery message",
+		b.logger.Debug("forwarded discovery message with original source IP preserved",
 			"alias", device.Alias,
 			"from_iface", msg.Iface,
 			"to_iface", ifaceName,
 			"from_ip", msg.From.IP.String(),
+			"from_port", msg.From.Port,
 		)
 	}
 }
