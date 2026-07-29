@@ -117,7 +117,7 @@ func NewBridge(cfg BridgeConfig, logger *slog.Logger) (*Bridge, error) {
 		deviceAlias: cfg.DeviceAlias,
 		fingerprint: cfg.Fingerprint,
 		excludedFP:  cfg.ExcludeFP,
-		dedup:       newMessageDedup(10 * time.Second), // 10s TTL prevents loops while allowing normal announcements
+		dedup:       newMessageDedup(3 * time.Second), // 10s TTL prevents loops while allowing normal announcements
 	}
 
 	// Create device tracker
@@ -192,7 +192,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -282,7 +282,9 @@ func (b *Bridge) processMessage(msg *multicast.Message) {
 	// Deduplication: skip messages we've already processed recently
 	// This prevents forwarding loops caused by bridged interfaces (e.g., br10 + vxlan10)
 	// where a forwarded message on one interface may be received on another.
-	key := messageKey(msg.Data)
+	// The dedup key includes both the content hash and the receiving interface,
+	// so the same message received on different interfaces is treated independently.
+	key := messageKey(msg.Data) + "|" + msg.Iface
 	if b.dedup.Seen(key) {
 		b.logger.Debug("skipping duplicate message",
 			"from", msg.From.String(),
