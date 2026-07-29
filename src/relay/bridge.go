@@ -2,6 +2,8 @@ package relay
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -24,7 +26,8 @@ type Bridge struct {
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
 	mu          sync.RWMutex
-	excludedFP  []string // fingerprints to exclude (self-discovery prevention)
+	excludedFP  []string      // fingerprints to exclude (self-discovery prevention)
+	dedup       *messageDedup // message deduplication to prevent loops
 }
 
 // BridgeConfig holds configuration for the bridge
@@ -39,6 +42,54 @@ type BridgeConfig struct {
 	ProxyEnabled    bool
 	ProxyPort       int
 	ExcludeFP       []string
+}
+
+// messageDedup provides short-term message deduplication to prevent forwarding loops
+type messageDedup struct {
+	entries map[string]time.Time
+	ttl     time.Duration
+	mu      sync.Mutex
+}
+
+// newMessageDedup creates a new message deduplication cache
+func newMessageDedup(ttl time.Duration) *messageDedup {
+	return &messageDedup{
+		entries: make(map[string]time.Time),
+		ttl:     ttl,
+	}
+}
+
+// Seen checks if a message key has been seen recently
+func (d *messageDedup) Seen(key string) bool {
+	d.mu.Lock()
+	_, ok := d.entries[key]
+	d.mu.Unlock()
+	return ok
+}
+
+// Add records a message key with the current timestamp
+func (d *messageDedup) Add(key string) {
+	d.mu.Lock()
+	d.entries[key] = time.Now()
+	d.mu.Unlock()
+}
+
+// Cleanup removes expired entries
+func (d *messageDedup) Cleanup() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	cutoff := time.Now().Add(-d.ttl)
+	for k, v := range d.entries {
+		if v.Before(cutoff) {
+			delete(d.entries, k)
+		}
+	}
+}
+
+// messageKey computes a unique key for a message based on its content hash
+func messageKey(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
 }
 
 // NewBridge creates a new bridge instance
@@ -66,6 +117,7 @@ func NewBridge(cfg BridgeConfig, logger *slog.Logger) (*Bridge, error) {
 		deviceAlias: cfg.DeviceAlias,
 		fingerprint: cfg.Fingerprint,
 		excludedFP:  cfg.ExcludeFP,
+		dedup:       newMessageDedup(10 * time.Second), // 10s TTL prevents loops while allowing normal announcements
 	}
 
 	// Create device tracker
@@ -136,6 +188,22 @@ func (b *Bridge) Run(ctx context.Context) error {
 		b.tracker.CleanupLoop(1*time.Minute, ctx.Done())
 	}()
 
+	// Start dedup cleanup loop
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				b.dedup.Cleanup()
+			}
+		}
+	}()
+
 	// Start proxy if enabled
 	if b.proxy != nil {
 		b.wg.Add(1)
@@ -173,6 +241,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 	b.logger.Info("bridge started",
 		"interfaces", len(b.listeners),
 		"devices_tracked", b.tracker.Count(),
+		"dedup_ttl", b.dedup.ttl.String(),
 	)
 
 	return nil
@@ -209,6 +278,19 @@ func (b *Bridge) processMessage(msg *multicast.Message) {
 	if !protocol.IsDiscoveryMessage(msg.Data) {
 		return
 	}
+
+	// Deduplication: skip messages we've already processed recently
+	// This prevents forwarding loops caused by bridged interfaces (e.g., br10 + vxlan10)
+	// where a forwarded message on one interface may be received on another.
+	key := messageKey(msg.Data)
+	if b.dedup.Seen(key) {
+		b.logger.Debug("skipping duplicate message",
+			"from", msg.From.String(),
+			"iface", msg.Iface,
+		)
+		return
+	}
+	b.dedup.Add(key)
 
 	// Parse the message
 	discoveryMsg, err := protocol.ParseDiscoveryMessage(msg.Data, msg.From)
