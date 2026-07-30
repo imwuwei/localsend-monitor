@@ -15,6 +15,18 @@ import (
 	"github.com/localsend-monitor/src/relay"
 )
 
+func init() {
+	flag.Usage = func() {
+		out := flag.CommandLine.Output()
+		fmt.Fprintf(out, "用法: %s [选项]\n\n", flag.CommandLine.Name())
+		fmt.Fprintf(out, "选项:\n")
+		fmt.Fprintf(out, "  -i, -interfaces <string>   要监听的网络接口（逗号分隔）\n")
+		fmt.Fprintf(out, "  -L, -list-interfaces       列出可用的网络接口\n")
+		fmt.Fprintf(out, "  -v, -version               显示版本信息\n")
+		fmt.Fprintf(out, "  -h, -help                  显示帮助信息\n")
+	}
+}
+
 // Version info, set at build time
 var (
 	Version   = "dev"
@@ -30,7 +42,13 @@ func main() {
 	listInterfacesShort := flag.Bool("L", false, "List available network interfaces (shorthand)")
 	showVersion := flag.Bool("version", false, "Show version information")
 	showVersionShort := flag.Bool("v", false, "Show version information (shorthand)")
+	showHelp := flag.Bool("h", false, "Show help")
 	flag.Parse()
+
+	if *showHelp {
+		flag.Usage()
+		os.Exit(0)
+	}
 
 	if *showVersion || *showVersionShort {
 		fmt.Printf("localsend-monitor %s (build: %s, commit: %s)\n", Version, BuildTime, Commit)
