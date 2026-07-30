@@ -3,4 +3,4 @@ services:
     build: .
     network_mode: "host"
     restart: always
-    command: ["-i", "eth0"]
+    command: ["-i", "ens192"]
