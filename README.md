@@ -164,23 +164,17 @@ GET /api/stats
 GET /api/health
 ```
 
-## 跨子网方案
-
-### 方案一：多网卡桥接（推荐）
+## 跨子网示例
 
 在一台同时连接多个子网的机器上运行，自动在不同网卡间转发发现消息。
 
 ```
-Device A (192.168.1.0/24) ←→ Bridge ←→ Device B (192.168.2.0/24)
+Device A (192.168.1.0/24 eth0) ←→ Bridge ←→ Device B (192.168.2.0/24 eth1)
 ```
 
 ```bash
 ./localsend-monitor -i eth0,eth1
 ```
-
-### 方案二：主动转发
-
-在多个子网中分别部署，通过 HTTP 定时同步设备列表。
 
 ## License
 
