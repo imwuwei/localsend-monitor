@@ -87,8 +87,6 @@ docker run --network host localsend-monitor -i eth0
 | `--interfaces` | `-i` | `""` | 监听网卡列表，逗号分隔（必需） |
 | `--group-addr` | `-g` | `"224.0.0.167"` | 多播组地址 |
 | `--port` | `-p` | `53317` | 多播端口 |
-| `--device-alias` | `-a` | `""` | 设备别名 |
-| `--fingerprint` | `-f` | `""` | 设备指纹 |
 | `--offline-timeout` | `-t` | `"5m"` | 设备离线超时时间（如 `5m`、`30s`） |
 | `--cleanup-interval` | `-c` | `"1m"` | 清理间隔（如 `1m`、`30s`） |
 | `--exclude-fp` | 无 | `""` | 排除的指纹列表，逗号分隔 |

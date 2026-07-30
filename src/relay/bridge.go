@@ -15,19 +15,17 @@ import (
 
 // Bridge is the core component that bridges multicast messages between interfaces
 type Bridge struct {
-	cfg         BridgeConfig
-	listeners   []*multicast.Listener
-	senders     map[string]*multicast.Sender
-	tracker     *DeviceTracker
-	logger      *slog.Logger
-	deviceAlias string
-	fingerprint string
-	msgChans    []chan *multicast.Message
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
-	mu          sync.RWMutex
-	excludedFP  []string      // fingerprints to exclude (self-discovery prevention)
-	dedup       *messageDedup // message deduplication to prevent loops
+	cfg        BridgeConfig
+	listeners  []*multicast.Listener
+	senders    map[string]*multicast.Sender
+	tracker    *DeviceTracker
+	logger     *slog.Logger
+	msgChans   []chan *multicast.Message
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
+	mu         sync.RWMutex
+	excludedFP []string      // fingerprints to exclude (self-discovery prevention)
+	dedup      *messageDedup // message deduplication to prevent loops
 }
 
 // BridgeConfig holds configuration for the bridge
@@ -35,8 +33,6 @@ type BridgeConfig struct {
 	Interfaces      []string
 	GroupAddr       string
 	Port            int
-	DeviceAlias     string
-	Fingerprint     string
 	OfflineTimeout  time.Duration
 	CleanupInterval time.Duration
 	ExcludeFP       []string
@@ -106,13 +102,11 @@ func NewBridge(cfg BridgeConfig, logger *slog.Logger) (*Bridge, error) {
 		cfg.CleanupInterval = 1 * time.Minute
 	}
 	bridge := &Bridge{
-		cfg:         cfg,
-		senders:     make(map[string]*multicast.Sender),
-		logger:      logger.With("component", "bridge"),
-		deviceAlias: cfg.DeviceAlias,
-		fingerprint: cfg.Fingerprint,
-		excludedFP:  cfg.ExcludeFP,
-		dedup:       newMessageDedup(3 * time.Second), // 10s TTL prevents loops while allowing normal announcements
+		cfg:        cfg,
+		senders:    make(map[string]*multicast.Sender),
+		logger:     logger.With("component", "bridge"),
+		excludedFP: cfg.ExcludeFP,
+		dedup:      newMessageDedup(3 * time.Second), // 10s TTL prevents loops while allowing normal announcements
 	}
 
 	// Create device tracker
@@ -276,11 +270,6 @@ func (b *Bridge) processMessage(msg *multicast.Message) {
 		return
 	}
 
-	// Skip self-discovery
-	if b.isSelf(discoveryMsg.Fingerprint) {
-		return
-	}
-
 	// Skip if fingerprint is excluded
 	if b.isExcluded(discoveryMsg.Fingerprint) {
 		return
@@ -331,11 +320,6 @@ func (b *Bridge) forwardToOtherInterfaces(msg *multicast.Message, device *protoc
 			"from_port", msg.From.Port,
 		)
 	}
-}
-
-// isSelf checks if the fingerprint belongs to this bridge
-func (b *Bridge) isSelf(fingerprint string) bool {
-	return b.fingerprint != "" && fingerprint == b.fingerprint
 }
 
 // isExcluded checks if the fingerprint is in the exclusion list

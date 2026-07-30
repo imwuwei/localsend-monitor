@@ -23,8 +23,6 @@ func init() {
 		fmt.Fprintf(out, "  -i, --interfaces <string>       要监听的网络接口（逗号分隔）\n")
 		fmt.Fprintf(out, "  -g, --group-addr <string>       多播组地址（默认: 224.0.0.167）\n")
 		fmt.Fprintf(out, "  -p, --port <int>                多播端口（默认: 53317）\n")
-		fmt.Fprintf(out, "  -a, --device-alias <string>     设备别名\n")
-		fmt.Fprintf(out, "  -f, --fingerprint <string>       设备指纹\n")
 		fmt.Fprintf(out, "  -t, --offline-timeout <duration> 设备离线超时时间（默认: 5m）\n")
 		fmt.Fprintf(out, "  -c, --cleanup-interval <duration> 清理间隔（默认: 1m）\n")
 		fmt.Fprintf(out, "      --exclude-fp <string>        排除的指纹列表（逗号分隔）\n")
@@ -49,10 +47,6 @@ func main() {
 	groupAddrShort := flag.String("g", "224.0.0.167", "Multicast group address (shorthand)")
 	port := flag.Int("port", 53317, "Multicast port")
 	portShort := flag.Int("p", 53317, "Multicast port (shorthand)")
-	deviceAlias := flag.String("device-alias", "", "Device alias")
-	deviceAliasShort := flag.String("a", "", "Device alias (shorthand)")
-	fingerprint := flag.String("fingerprint", "", "Device fingerprint")
-	fingerprintShort := flag.String("f", "", "Device fingerprint (shorthand)")
 	offlineTimeout := flag.Duration("offline-timeout", 5*time.Minute, "Device offline timeout")
 	offlineTimeoutShort := flag.Duration("t", 5*time.Minute, "Device offline timeout (shorthand)")
 	cleanupInterval := flag.Duration("cleanup-interval", 1*time.Minute, "Cleanup interval")
@@ -106,14 +100,6 @@ func main() {
 	if *portShort != 53317 {
 		multicastPort = *portShort
 	}
-	devAlias := *deviceAlias
-	if *deviceAliasShort != "" {
-		devAlias = *deviceAliasShort
-	}
-	fp := *fingerprint
-	if *fingerprintShort != "" {
-		fp = *fingerprintShort
-	}
 	offTimeout := *offlineTimeout
 	if *offlineTimeoutShort != 5*time.Minute {
 		offTimeout = *offlineTimeoutShort
@@ -152,8 +138,6 @@ func main() {
 		Interfaces:      interfaces,
 		GroupAddr:       multicastAddr,
 		Port:            multicastPort,
-		DeviceAlias:     devAlias,
-		Fingerprint:     fp,
 		OfflineTimeout:  offTimeout,
 		CleanupInterval: cleanInterval,
 		ExcludeFP:       excludeFP,
