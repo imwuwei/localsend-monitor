@@ -2,21 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
 	"os/signal"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/localsend-monitor/src/config"
-	"github.com/localsend-monitor/src/forwarder"
-	"github.com/localsend-monitor/src/protocol"
 	"github.com/localsend-monitor/src/relay"
 )
 
@@ -29,89 +24,67 @@ var (
 
 func main() {
 	// Parse flags
-	configPath := flag.String("config", "config.json", "Path to configuration file")
-	showVersion := flag.Bool("version", false, "Show version information")
+	interfacesStr := flag.String("interfaces", "", "Network interfaces to listen on (comma-separated)")
+	interfacesStrShort := flag.String("i", "", "Network interfaces to listen on (comma-separated, shorthand)")
 	listInterfaces := flag.Bool("list-interfaces", false, "List available network interfaces")
+	listInterfacesShort := flag.Bool("L", false, "List available network interfaces (shorthand)")
+	showVersion := flag.Bool("version", false, "Show version information")
+	showVersionShort := flag.Bool("v", false, "Show version information (shorthand)")
 	flag.Parse()
 
-	if *showVersion {
+	if *showVersion || *showVersionShort {
 		fmt.Printf("localsend-monitor %s (build: %s, commit: %s)\n", Version, BuildTime, Commit)
 		os.Exit(0)
 	}
 
-	if *listInterfaces {
+	if *listInterfaces || *listInterfacesShort {
 		listNetworkInterfaces()
 		os.Exit(0)
 	}
 
-	// Load configuration
-	cfg, err := config.LoadConfig(*configPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
+	// Get interfaces from flag (short form takes precedence if both provided)
+	ifaces := *interfacesStr
+	if *interfacesStrShort != "" {
+		ifaces = *interfacesStrShort
+	}
+
+	if ifaces == "" {
+		fmt.Fprintln(os.Stderr, "Error: no interfaces specified. Use -L or -list-interfaces to see available interfaces.")
 		os.Exit(1)
 	}
 
-	// Set up logging
-	logger := setupLogger(cfg.LogLevel)
+	// Parse comma-separated interfaces
+	interfaces := strings.Split(ifaces, ",")
+	for i, iface := range interfaces {
+		interfaces[i] = strings.TrimSpace(iface)
+	}
+
+	// Set up logging with default level
+	logger := setupLogger("info")
 
 	logger.Info("starting localsend-monitor",
 		"version", Version,
-		"config", *configPath,
+		"interfaces", interfaces,
 	)
 
-	// Get network interfaces to use
-	interfaces, err := config.GetInterfaces(cfg)
-	if err != nil {
-		logger.Error("failed to get network interfaces", "error", err)
-		os.Exit(1)
-	}
-
-	// Filter out excluded interfaces (e.g., docker0, veth*, br-*)
-	interfaces = filterExcludedInterfaces(interfaces, cfg.ExcludeInterfaces)
-
-	if len(interfaces) == 0 {
-		logger.Error("no suitable network interfaces found")
-		os.Exit(1)
-	}
-
-	logger.Info("using network interfaces", "interfaces", interfaces)
-
-	// Create the bridge
+	// Build bridge config with hardcoded defaults
 	bridgeCfg := relay.BridgeConfig{
 		Interfaces:      interfaces,
-		GroupAddr:       cfg.GroupAddr,
-		Port:            cfg.Port,
-		DeviceAlias:     cfg.DeviceAlias,
-		Fingerprint:     cfg.Fingerprint,
-		OfflineTimeout:  cfg.OfflineTimeout,
-		CleanupInterval: cfg.CleanupInterval,
-		ProxyEnabled:    cfg.ProxyEnabled,
-		ProxyPort:       cfg.ProxyPort,
-		ExcludeFP:       cfg.ExcludeFP,
+		GroupAddr:       "224.0.0.167",
+		Port:            53317,
+		DeviceAlias:     "",
+		Fingerprint:     "",
+		OfflineTimeout:  5 * time.Minute,
+		CleanupInterval: 1 * time.Minute,
+		ProxyEnabled:    false,
+		ProxyPort:       53317,
+		ExcludeFP:       nil,
 	}
 
 	bridge, err := relay.NewBridge(bridgeCfg, logger)
 	if err != nil {
 		logger.Error("failed to create bridge", "error", err)
 		os.Exit(1)
-	}
-
-	// Create forwarder if enabled
-	var fwd *forwarder.Forwarder
-	if cfg.ForwarderEnabled {
-		fwdCfg := forwarder.Config{
-			ListenPort:       cfg.ForwarderPort,
-			GroupAddr:        cfg.GroupAddr,
-			Port:             cfg.Port,
-			AnnounceInterval: cfg.CleanupInterval,
-		}
-		fwd = forwarder.NewForwarder(fwdCfg, logger)
-	}
-
-	// Set up API server
-	var apiServer *APIServer
-	if cfg.APIServerEnabled {
-		apiServer = NewAPIServer(bridge, fwd, cfg, logger)
 	}
 
 	// Context for graceful shutdown
@@ -124,32 +97,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Start the forwarder
-	if fwd != nil {
-		if err := fwd.Start(ctx); err != nil {
-			logger.Error("failed to start forwarder", "error", err)
-		}
-	}
-
-	// Start the API server
-	if apiServer != nil {
-		go func() {
-			if err := apiServer.Start(ctx); err != nil {
-				logger.Error("API server error", "error", err)
-			}
-		}()
-	}
-
-	// Write status file if configured
-	if cfg.StatusFile != "" {
-		go writeStatusPeriodically(cfg.StatusFile, bridge, logger, ctx.Done())
-	}
-
 	logger.Info("localsend-monitor started successfully",
 		"interfaces", interfaces,
-		"proxy", cfg.ProxyEnabled,
-		"forwarder", cfg.ForwarderEnabled,
-		"api", cfg.APIServerEnabled,
 	)
 
 	// Wait for shutdown signal
@@ -160,12 +109,6 @@ func main() {
 
 	// Graceful shutdown
 	bridge.Stop()
-	if fwd != nil {
-		fwd.Stop()
-	}
-	if apiServer != nil {
-		apiServer.Stop()
-	}
 
 	logger.Info("localsend-monitor stopped")
 }
@@ -191,35 +134,6 @@ func setupLogger(level string) *slog.Logger {
 	})
 
 	return slog.New(handler)
-}
-
-// filterExcludedInterfaces removes interfaces that match the exclusion patterns
-func filterExcludedInterfaces(interfaces, excludePatterns []string) []string {
-	if len(excludePatterns) == 0 {
-		return interfaces
-	}
-
-	var result []string
-	for _, iface := range interfaces {
-		excluded := false
-		for _, pattern := range excludePatterns {
-			// Support simple wildcard: "*" suffix matches any prefix
-			if strings.HasSuffix(pattern, "*") {
-				prefix := strings.TrimSuffix(pattern, "*")
-				if strings.HasPrefix(iface, prefix) {
-					excluded = true
-					break
-				}
-			} else if strings.EqualFold(iface, pattern) {
-				excluded = true
-				break
-			}
-		}
-		if !excluded {
-			result = append(result, iface)
-		}
-	}
-	return result
 }
 
 // listNetworkInterfaces prints all available network interfaces
@@ -263,47 +177,4 @@ func formatFlags(flags net.Flags) string {
 		parts = append(parts, "LOOP")
 	}
 	return strings.Join(parts, ",")
-}
-
-// writeStatusPeriodically writes device status to a file
-func writeStatusPeriodically(path string, bridge *relay.Bridge, logger *slog.Logger, done <-chan struct{}) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-done:
-			return
-		case <-ticker.C:
-			writeStatusFile(path, bridge, logger)
-		}
-	}
-}
-
-// writeStatusFile writes the current status to a JSON file
-func writeStatusFile(path string, bridge *relay.Bridge, logger *slog.Logger) {
-	devices := bridge.GetTracker().GetAll()
-	sort.Slice(devices, func(i, j int) bool {
-		return devices[i].Alias < devices[j].Alias
-	})
-
-	status := struct {
-		Timestamp int64                  `json:"timestamp"`
-		Devices   []*protocol.DeviceInfo `json:"devices"`
-		Count     int                    `json:"count"`
-	}{
-		Timestamp: time.Now().Unix(),
-		Devices:   devices,
-		Count:     len(devices),
-	}
-
-	data, err := json.MarshalIndent(status, "", "  ")
-	if err != nil {
-		logger.Error("failed to marshal status", "error", err)
-		return
-	}
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		logger.Error("failed to write status file", "error", err)
-	}
 }

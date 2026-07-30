@@ -9,8 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/localsend-monitor/src/config"
-	"github.com/localsend-monitor/src/forwarder"
 	"github.com/localsend-monitor/src/protocol"
 	"github.com/localsend-monitor/src/relay"
 )
@@ -18,19 +16,15 @@ import (
 // APIServer provides HTTP API for monitoring and managing the bridge
 type APIServer struct {
 	bridge  *relay.Bridge
-	fwd     *forwarder.Forwarder
-	cfg     *config.Config
 	server  *http.Server
 	logger  *slog.Logger
 	started time.Time
 }
 
 // NewAPIServer creates a new API server
-func NewAPIServer(bridge *relay.Bridge, fwd *forwarder.Forwarder, cfg *config.Config, logger *slog.Logger) *APIServer {
+func NewAPIServer(bridge *relay.Bridge, listenAddr string, port int, logger *slog.Logger) *APIServer {
 	api := &APIServer{
 		bridge:  bridge,
-		fwd:     fwd,
-		cfg:     cfg,
 		logger:  logger.With("component", "api"),
 		started: time.Now(),
 	}
@@ -43,7 +37,7 @@ func NewAPIServer(bridge *relay.Bridge, fwd *forwarder.Forwarder, cfg *config.Co
 	mux.HandleFunc("/api/interfaces", api.handleInterfaces)
 
 	api.server = &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", cfg.APIListenAddr, cfg.APIServerPort),
+		Addr:    fmt.Sprintf("%s:%d", listenAddr, port),
 		Handler: mux,
 	}
 
@@ -182,11 +176,8 @@ func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // handleInterfaces returns network interface information
 func (s *APIServer) handleInterfaces(w http.ResponseWriter, r *http.Request) {
-	interfaces, err := config.GetInterfaces(s.cfg)
-	if err != nil {
-		http.Error(w, "Failed to get interfaces", http.StatusInternalServerError)
-		return
-	}
+	// Get interfaces from the bridge config
+	interfaces := s.bridge.GetInterfaces()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

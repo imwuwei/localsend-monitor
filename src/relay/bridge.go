@@ -15,6 +15,7 @@ import (
 
 // Bridge is the core component that bridges multicast messages between interfaces
 type Bridge struct {
+	cfg         BridgeConfig
 	listeners   []*multicast.Listener
 	senders     map[string]*multicast.Sender
 	tracker     *DeviceTracker
@@ -112,6 +113,7 @@ func NewBridge(cfg BridgeConfig, logger *slog.Logger) (*Bridge, error) {
 	}
 
 	bridge := &Bridge{
+		cfg:         cfg,
 		senders:     make(map[string]*multicast.Sender),
 		logger:      logger.With("component", "bridge"),
 		deviceAlias: cfg.DeviceAlias,
@@ -379,6 +381,11 @@ func (b *Bridge) isExcluded(fingerprint string) bool {
 // GetTracker returns the device tracker
 func (b *Bridge) GetTracker() *DeviceTracker {
 	return b.tracker
+}
+
+// GetInterfaces returns the configured network interfaces
+func (b *Bridge) GetInterfaces() []string {
+	return b.cfg.Interfaces
 }
 
 // Stop gracefully stops the bridge

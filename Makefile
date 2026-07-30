@@ -2,7 +2,7 @@
 
 BINARY_NAME=localsend-monitor
 VERSION?=dev
-BUILD_TIME?=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
+BUILD_TIME?=$(shell date '+%Y-%m-%d_%H:%M:%S')
 COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 
 # Static build - no CGO, no glibc dependency

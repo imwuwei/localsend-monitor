@@ -10,7 +10,6 @@ LocalSend 多播消息监听、桥接与转发工具。用于跨子网发现 Loc
 - **HTTP 代理** - 代理设备间的注册请求，辅助跨子网文件传输
 - **主动转发** - 定时向其他子网广播已知设备列表
 - **REST API** - 提供 HTTP API 用于查询设备状态和统计信息
-- **状态文件** - 可选的 JSON 状态文件输出，方便外部程序集成
 
 ## 架构
 
@@ -57,13 +56,19 @@ go build -o localsend-monitor .
 
 ```bash
 # 查看可用网卡
-./localsend-monitor --list-interfaces
+./localsend-monitor -L
 
-# 使用默认配置运行
-./localsend-monitor
+# 指定网卡运行（必需）
+./localsend-monitor -i eth0
 
-# 使用自定义配置文件
-./localsend-monitor --config /path/to/config.json
+# 指定多个网卡
+./localsend-monitor -i eth0,wlan0
+
+# 同时使用长参数
+./localsend-monitor --interfaces eth0,wlan0
+
+# 查看版本
+./localsend-monitor -v
 ```
 
 ### Docker
@@ -73,52 +78,18 @@ go build -o localsend-monitor .
 docker build -t localsend-monitor .
 
 # 运行容器（使用 host 网络模式以访问多播）
-docker run --network host -v $(pwd)/config.json:/app/config.json localsend-monitor
+docker run --network host localsend-monitor -i eth0
 ```
 
-## 配置
+## 命令行参数
 
-参考 `config.json` 文件：
+| 参数 | 简写 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--interfaces` | `-i` | `""` | 监听网卡列表，逗号分隔（必需） |
+| `--list-interfaces` | `-L` | `false` | 列出可用网卡 |
+| `--version` | `-v` | `false` | 显示版本信息 |
 
-```json
-{
-  "interfaces": ["eth0", "wlan0"],
-  "groupAddr": "224.0.0.167",
-  "port": 53317,
-  "deviceAlias": "localsend-bridge",
-  "fingerprint": "",
-  "offlineTimeout": 300000000000,
-  "cleanupInterval": 60000000000,
-  "proxyEnabled": false,
-  "proxyPort": 53317,
-  "forwarderEnabled": false,
-  "forwarderPort": 53318,
-  "logLevel": "info",
-  "excludeFP": [],
-  "apiServerEnabled": true,
-  "apiServerPort": 8080,
-  "apiListenAddr": "0.0.0.0",
-  "statusFile": "/tmp/localsend-status.json"
-}
-```
-
-### 配置项说明
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `interfaces` | `[]` | 监听网卡列表，留空自动检测 |
-| `groupAddr` | `224.0.0.167` | 多播组地址 |
-| `port` | `53317` | 多播端口 |
-| `deviceAlias` | `localsend-bridge` | 设备显示名称 |
-| `fingerprint` | `""` | 设备指纹，用于过滤自身消息 |
-| `offlineTimeout` | `5m` | 设备离线超时时间 |
-| `cleanupInterval` | `1m` | 清理间隔 |
-| `proxyEnabled` | `false` | 启用 HTTP 代理 |
-| `forwarderEnabled` | `false` | 启用主动转发 |
-| `logLevel` | `"info"` | 日志级别: debug, info, warn, error |
-| `apiServerEnabled` | `true` | 启用 API 服务器 |
-| `apiServerPort` | `8080` | API 端口 |
-| `statusFile` | `""` | 状态文件路径，留空不输出 |
+所有配置通过命令行参数传入，无需配置文件。
 
 ## API 接口
 
@@ -178,6 +149,10 @@ GET /api/health
 
 ```
 Device A (192.168.1.0/24) ←→ Bridge ←→ Device B (192.168.2.0/24)
+```
+
+```bash
+./localsend-monitor -i eth0,eth1
 ```
 
 ### 方案二：HTTP 代理
