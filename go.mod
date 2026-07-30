@@ -1,4 +1,4 @@
-module github.com/localsend-monitor
+module github.com/imwuwei/localsend-monitor
 
 go 1.26.1
 

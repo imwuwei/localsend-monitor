@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/localsend-monitor/src/protocol"
-	"github.com/localsend-monitor/src/relay"
+	"github.com/imwuwei/localsend-monitor/src/protocol"
+	"github.com/imwuwei/localsend-monitor/src/relay"
 )
 
 // APIServer provides HTTP API for monitoring and managing the bridge

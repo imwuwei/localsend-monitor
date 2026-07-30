@@ -46,7 +46,7 @@ LocalSend 多播消息监听、桥接与转发工具。用于跨子网发现 Loc
 ### 安装
 
 ```bash
-git clone https://github.com/yourusername/localsend-monitor.git
+git clone https://github.com/imwuwei/localsend-monitor.git
 cd localsend-monitor
 go build -o localsend-monitor .
 ```

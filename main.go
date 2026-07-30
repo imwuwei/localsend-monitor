@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/localsend-monitor/src/relay"
+	"github.com/imwuwei/localsend-monitor/src/relay"
 )
 
 func init() {

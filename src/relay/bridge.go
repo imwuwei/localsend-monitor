@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/localsend-monitor/src/multicast"
-	"github.com/localsend-monitor/src/protocol"
+	"github.com/imwuwei/localsend-monitor/src/multicast"
+	"github.com/imwuwei/localsend-monitor/src/protocol"
 )
 
 // Bridge is the core component that bridges multicast messages between interfaces
