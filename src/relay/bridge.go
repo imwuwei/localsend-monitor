@@ -19,7 +19,6 @@ type Bridge struct {
 	listeners   []*multicast.Listener
 	senders     map[string]*multicast.Sender
 	tracker     *DeviceTracker
-	proxy       *Proxy
 	logger      *slog.Logger
 	deviceAlias string
 	fingerprint string
@@ -40,8 +39,6 @@ type BridgeConfig struct {
 	Fingerprint     string
 	OfflineTimeout  time.Duration
 	CleanupInterval time.Duration
-	ProxyEnabled    bool
-	ProxyPort       int
 	ExcludeFP       []string
 }
 
@@ -108,10 +105,6 @@ func NewBridge(cfg BridgeConfig, logger *slog.Logger) (*Bridge, error) {
 	if cfg.CleanupInterval == 0 {
 		cfg.CleanupInterval = 1 * time.Minute
 	}
-	if cfg.ProxyPort == 0 {
-		cfg.ProxyPort = protocol.DefaultPort
-	}
-
 	bridge := &Bridge{
 		cfg:         cfg,
 		senders:     make(map[string]*multicast.Sender),
@@ -155,18 +148,6 @@ func NewBridge(cfg BridgeConfig, logger *slog.Logger) (*Bridge, error) {
 		return nil, fmt.Errorf("no valid interfaces to listen on")
 	}
 
-	// Create proxy if enabled
-	if cfg.ProxyEnabled {
-		proxy, err := NewProxy(cfg.ProxyPort, bridge.tracker, logger)
-		if err != nil {
-			logger.Warn("failed to create proxy, continuing without it",
-				"error", err,
-			)
-		} else {
-			bridge.proxy = proxy
-		}
-	}
-
 	return bridge, nil
 }
 
@@ -205,17 +186,6 @@ func (b *Bridge) Run(ctx context.Context) error {
 			}
 		}
 	}()
-
-	// Start proxy if enabled
-	if b.proxy != nil {
-		b.wg.Add(1)
-		go func() {
-			defer b.wg.Done()
-			if err := b.proxy.Start(ctx); err != nil {
-				b.logger.Error("proxy error", "error", err)
-			}
-		}()
-	}
 
 	// Set up device callbacks
 	b.tracker.SetOnJoin(func(device *protocol.DeviceInfo) {
@@ -401,10 +371,6 @@ func (b *Bridge) Stop() {
 	}
 	for _, sender := range b.senders {
 		sender.Close()
-	}
-
-	if b.proxy != nil {
-		b.proxy.Stop()
 	}
 
 	b.logger.Info("bridge stopped")

@@ -27,8 +27,6 @@ func init() {
 		fmt.Fprintf(out, "  -f, --fingerprint <string>       设备指纹\n")
 		fmt.Fprintf(out, "  -t, --offline-timeout <duration> 设备离线超时时间（默认: 5m）\n")
 		fmt.Fprintf(out, "  -c, --cleanup-interval <duration> 清理间隔（默认: 1m）\n")
-		fmt.Fprintf(out, "      --proxy-enabled              启用 HTTP 代理\n")
-		fmt.Fprintf(out, "      --proxy-port <int>           代理端口（默认: 53317）\n")
 		fmt.Fprintf(out, "      --exclude-fp <string>        排除的指纹列表（逗号分隔）\n")
 		fmt.Fprintf(out, "  -L, --list-interfaces           列出可用的网络接口\n")
 		fmt.Fprintf(out, "  -v, --version                   显示版本信息\n")
@@ -59,8 +57,6 @@ func main() {
 	offlineTimeoutShort := flag.Duration("t", 5*time.Minute, "Device offline timeout (shorthand)")
 	cleanupInterval := flag.Duration("cleanup-interval", 1*time.Minute, "Cleanup interval")
 	cleanupIntervalShort := flag.Duration("c", 1*time.Minute, "Cleanup interval (shorthand)")
-	proxyEnabled := flag.Bool("proxy-enabled", false, "Enable HTTP proxy")
-	proxyPort := flag.Int("proxy-port", 53317, "Proxy port")
 	excludeFPStr := flag.String("exclude-fp", "", "Fingerprints to exclude (comma-separated)")
 	listInterfaces := flag.Bool("list-interfaces", false, "List available network interfaces")
 	listInterfacesShort := flag.Bool("L", false, "List available network interfaces (shorthand)")
@@ -147,8 +143,6 @@ func main() {
 		"interfaces", interfaces,
 		"group_addr", multicastAddr,
 		"port", multicastPort,
-		"proxy_enabled", *proxyEnabled,
-		"proxy_port", *proxyPort,
 		"offline_timeout", offTimeout.String(),
 		"cleanup_interval", cleanInterval.String(),
 	)
@@ -162,8 +156,6 @@ func main() {
 		Fingerprint:     fp,
 		OfflineTimeout:  offTimeout,
 		CleanupInterval: cleanInterval,
-		ProxyEnabled:    *proxyEnabled,
-		ProxyPort:       *proxyPort,
 		ExcludeFP:       excludeFP,
 	}
 

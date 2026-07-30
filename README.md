@@ -7,7 +7,6 @@ LocalSend 多播消息监听、桥接与转发工具。用于跨子网发现 Loc
 - **多播消息监听** - 监听 LocalSend 的 UDP 多播发现消息
 - **多网卡桥接** - 在不同网络接口之间转发发现消息，让设备在多个子网中互相可见
 - **设备追踪** - 自动追踪在线/离线设备，支持超时自动清理
-- **HTTP 代理** - 代理设备间的注册请求，辅助跨子网文件传输
 - **主动转发** - 定时向其他子网广播已知设备列表
 - **REST API** - 提供 HTTP API 用于查询设备状态和统计信息
 
@@ -32,9 +31,9 @@ LocalSend 多播消息监听、桥接与转发工具。用于跨子网发现 Loc
 │          ┌───────────┼───────────┐                       │
 │          │           │           │                       │
 │   ┌──────▼─────┐ ┌──▼───┐ ┌────▼─────┐                 │
-│   │  Device    │ │Proxy │ │Forwarder │                 │
-│   │  Tracker   │ │(HTTP)│ │(HTTP)   │                 │
-│   └────────────┘ └──────┘ └──────────┘                 │
+│   │  Device    │ │Forwarder │                         │
+│   │  Tracker   │ │(HTTP)   │                         │
+│   └────────────┘ └──────────┘                         │
 │                                                          │
 │   ┌──────────────┐                                       │
 │   │  API Server  │─── /api/devices, /api/stats, ...      │
@@ -92,8 +91,6 @@ docker run --network host localsend-monitor -i eth0
 | `--fingerprint` | `-f` | `""` | 设备指纹 |
 | `--offline-timeout` | `-t` | `"5m"` | 设备离线超时时间（如 `5m`、`30s`） |
 | `--cleanup-interval` | `-c` | `"1m"` | 清理间隔（如 `1m`、`30s`） |
-| `--proxy-enabled` | 无 | `false` | 启用 HTTP 代理 |
-| `--proxy-port` | 无 | `53317` | 代理端口 |
 | `--exclude-fp` | 无 | `""` | 排除的指纹列表，逗号分隔 |
 | `--list-interfaces` | `-L` | `false` | 列出可用网卡 |
 | `--version` | `-v` | `false` | 显示版本信息 |
@@ -109,8 +106,8 @@ docker run --network host localsend-monitor -i eth0
 # 指定网卡和自定义多播地址
 ./localsend-monitor -i eth0 --group-addr 224.0.0.168 --port 53318
 
-# 启用 HTTP 代理并设置离线超时
-./localsend-monitor -i eth0,wlan0 --proxy-enabled --offline-timeout 10m
+# 设置离线超时
+./localsend-monitor -i eth0,wlan0 --offline-timeout 10m
 
 # 使用长选项配置
 ./localsend-monitor --interfaces eth0 --offline-timeout 5m --cleanup-interval 30s
@@ -180,11 +177,7 @@ Device A (192.168.1.0/24) ←→ Bridge ←→ Device B (192.168.2.0/24)
 ./localsend-monitor -i eth0,eth1
 ```
 
-### 方案二：HTTP 代理
-
-启用 HTTP 代理后，设备可通过代理互相发送注册请求，实现跨子网文件传输。
-
-### 方案三：主动转发
+### 方案二：主动转发
 
 在多个子网中分别部署，通过 HTTP 定时同步设备列表。
 
