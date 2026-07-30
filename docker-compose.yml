@@ -1,0 +1,6 @@
+services:
+  localsend-monitor:
+    build: .
+    network_mode: "host"
+    restart: always
+    command: ["-i", "eth0"]
