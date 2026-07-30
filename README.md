@@ -86,10 +86,35 @@ docker run --network host localsend-monitor -i eth0
 | 参数 | 简写 | 默认值 | 说明 |
 |------|------|--------|------|
 | `--interfaces` | `-i` | `""` | 监听网卡列表，逗号分隔（必需） |
+| `--group-addr` | `-g` | `"224.0.0.167"` | 多播组地址 |
+| `--port` | `-p` | `53317` | 多播端口 |
+| `--device-alias` | `-a` | `""` | 设备别名 |
+| `--fingerprint` | `-f` | `""` | 设备指纹 |
+| `--offline-timeout` | `-t` | `"5m"` | 设备离线超时时间（如 `5m`、`30s`） |
+| `--cleanup-interval` | `-c` | `"1m"` | 清理间隔（如 `1m`、`30s`） |
+| `--proxy-enabled` | 无 | `false` | 启用 HTTP 代理 |
+| `--proxy-port` | 无 | `53317` | 代理端口 |
+| `--exclude-fp` | 无 | `""` | 排除的指纹列表，逗号分隔 |
 | `--list-interfaces` | `-L` | `false` | 列出可用网卡 |
 | `--version` | `-v` | `false` | 显示版本信息 |
 
 所有配置通过命令行参数传入，无需配置文件。
+
+### 使用示例
+
+```bash
+# 查看完整帮助
+./localsend-monitor --help
+
+# 指定网卡和自定义多播地址
+./localsend-monitor -i eth0 --group-addr 224.0.0.168 --port 53318
+
+# 启用 HTTP 代理并设置离线超时
+./localsend-monitor -i eth0,wlan0 --proxy-enabled --offline-timeout 10m
+
+# 使用长选项配置
+./localsend-monitor --interfaces eth0 --offline-timeout 5m --cleanup-interval 30s
+```
 
 ## API 接口
 

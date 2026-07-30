@@ -20,10 +20,19 @@ func init() {
 		out := flag.CommandLine.Output()
 		fmt.Fprintf(out, "用法: %s [选项]\n\n", flag.CommandLine.Name())
 		fmt.Fprintf(out, "选项:\n")
-		fmt.Fprintf(out, "  -i, -interfaces <string>   要监听的网络接口（逗号分隔）\n")
-		fmt.Fprintf(out, "  -L, -list-interfaces       列出可用的网络接口\n")
-		fmt.Fprintf(out, "  -v, -version               显示版本信息\n")
-		fmt.Fprintf(out, "  -h, -help                  显示帮助信息\n")
+		fmt.Fprintf(out, "  -i, --interfaces <string>       要监听的网络接口（逗号分隔）\n")
+		fmt.Fprintf(out, "  -g, --group-addr <string>       多播组地址（默认: 224.0.0.167）\n")
+		fmt.Fprintf(out, "  -p, --port <int>                多播端口（默认: 53317）\n")
+		fmt.Fprintf(out, "  -a, --device-alias <string>     设备别名\n")
+		fmt.Fprintf(out, "  -f, --fingerprint <string>       设备指纹\n")
+		fmt.Fprintf(out, "  -t, --offline-timeout <duration> 设备离线超时时间（默认: 5m）\n")
+		fmt.Fprintf(out, "  -c, --cleanup-interval <duration> 清理间隔（默认: 1m）\n")
+		fmt.Fprintf(out, "      --proxy-enabled              启用 HTTP 代理\n")
+		fmt.Fprintf(out, "      --proxy-port <int>           代理端口（默认: 53317）\n")
+		fmt.Fprintf(out, "      --exclude-fp <string>        排除的指纹列表（逗号分隔）\n")
+		fmt.Fprintf(out, "  -L, --list-interfaces           列出可用的网络接口\n")
+		fmt.Fprintf(out, "  -v, --version                   显示版本信息\n")
+		fmt.Fprintf(out, "  -h, --help                      显示帮助信息\n")
 	}
 }
 
@@ -38,6 +47,21 @@ func main() {
 	// Parse flags
 	interfacesStr := flag.String("interfaces", "", "Network interfaces to listen on (comma-separated)")
 	interfacesStrShort := flag.String("i", "", "Network interfaces to listen on (comma-separated, shorthand)")
+	groupAddr := flag.String("group-addr", "224.0.0.167", "Multicast group address")
+	groupAddrShort := flag.String("g", "224.0.0.167", "Multicast group address (shorthand)")
+	port := flag.Int("port", 53317, "Multicast port")
+	portShort := flag.Int("p", 53317, "Multicast port (shorthand)")
+	deviceAlias := flag.String("device-alias", "", "Device alias")
+	deviceAliasShort := flag.String("a", "", "Device alias (shorthand)")
+	fingerprint := flag.String("fingerprint", "", "Device fingerprint")
+	fingerprintShort := flag.String("f", "", "Device fingerprint (shorthand)")
+	offlineTimeout := flag.Duration("offline-timeout", 5*time.Minute, "Device offline timeout")
+	offlineTimeoutShort := flag.Duration("t", 5*time.Minute, "Device offline timeout (shorthand)")
+	cleanupInterval := flag.Duration("cleanup-interval", 1*time.Minute, "Cleanup interval")
+	cleanupIntervalShort := flag.Duration("c", 1*time.Minute, "Cleanup interval (shorthand)")
+	proxyEnabled := flag.Bool("proxy-enabled", false, "Enable HTTP proxy")
+	proxyPort := flag.Int("proxy-port", 53317, "Proxy port")
+	excludeFPStr := flag.String("exclude-fp", "", "Fingerprints to exclude (comma-separated)")
 	listInterfaces := flag.Bool("list-interfaces", false, "List available network interfaces")
 	listInterfacesShort := flag.Bool("L", false, "List available network interfaces (shorthand)")
 	showVersion := flag.Bool("version", false, "Show version information")
@@ -77,26 +101,70 @@ func main() {
 		interfaces[i] = strings.TrimSpace(iface)
 	}
 
+	// Short form takes precedence for all configurable options
+	multicastAddr := *groupAddr
+	if *groupAddrShort != "224.0.0.167" {
+		multicastAddr = *groupAddrShort
+	}
+	multicastPort := *port
+	if *portShort != 53317 {
+		multicastPort = *portShort
+	}
+	devAlias := *deviceAlias
+	if *deviceAliasShort != "" {
+		devAlias = *deviceAliasShort
+	}
+	fp := *fingerprint
+	if *fingerprintShort != "" {
+		fp = *fingerprintShort
+	}
+	offTimeout := *offlineTimeout
+	if *offlineTimeoutShort != 5*time.Minute {
+		offTimeout = *offlineTimeoutShort
+	}
+	cleanInterval := *cleanupInterval
+	if *cleanupIntervalShort != 1*time.Minute {
+		cleanInterval = *cleanupIntervalShort
+	}
+
+	// Parse comma-separated excluded fingerprints
+	var excludeFP []string
+	if *excludeFPStr != "" {
+		parts := strings.Split(*excludeFPStr, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				excludeFP = append(excludeFP, p)
+			}
+		}
+	}
+
 	// Set up logging with default level
 	logger := setupLogger("info")
 
 	logger.Info("starting localsend-monitor",
 		"version", Version,
 		"interfaces", interfaces,
+		"group_addr", multicastAddr,
+		"port", multicastPort,
+		"proxy_enabled", *proxyEnabled,
+		"proxy_port", *proxyPort,
+		"offline_timeout", offTimeout.String(),
+		"cleanup_interval", cleanInterval.String(),
 	)
 
-	// Build bridge config with hardcoded defaults
+	// Build bridge config from command-line flags
 	bridgeCfg := relay.BridgeConfig{
 		Interfaces:      interfaces,
-		GroupAddr:       "224.0.0.167",
-		Port:            53317,
-		DeviceAlias:     "",
-		Fingerprint:     "",
-		OfflineTimeout:  5 * time.Minute,
-		CleanupInterval: 1 * time.Minute,
-		ProxyEnabled:    false,
-		ProxyPort:       53317,
-		ExcludeFP:       nil,
+		GroupAddr:       multicastAddr,
+		Port:            multicastPort,
+		DeviceAlias:     devAlias,
+		Fingerprint:     fp,
+		OfflineTimeout:  offTimeout,
+		CleanupInterval: cleanInterval,
+		ProxyEnabled:    *proxyEnabled,
+		ProxyPort:       *proxyPort,
+		ExcludeFP:       excludeFP,
 	}
 
 	bridge, err := relay.NewBridge(bridgeCfg, logger)
