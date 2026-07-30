@@ -26,6 +26,9 @@ func init() {
 		fmt.Fprintf(out, "  -t, --offline-timeout <duration> 设备离线超时时间（默认: 5m）\n")
 		fmt.Fprintf(out, "  -c, --cleanup-interval <duration> 清理间隔（默认: 1m）\n")
 		fmt.Fprintf(out, "      --exclude-fp <string>        排除的指纹列表（逗号分隔）\n")
+		fmt.Fprintf(out, "      --api                        启用 API 服务（默认关闭）\n")
+		fmt.Fprintf(out, "      --api-addr <string>           API 服务监听地址（默认: 0.0.0.0）\n")
+		fmt.Fprintf(out, "      --api-port <int>              API 服务端口（默认: 53318）\n")
 		fmt.Fprintf(out, "  -L, --list-interfaces           列出可用的网络接口\n")
 		fmt.Fprintf(out, "  -v, --version                   显示版本信息\n")
 		fmt.Fprintf(out, "  -h, --help                      显示帮助信息\n")
@@ -54,6 +57,9 @@ func main() {
 	excludeFPStr := flag.String("exclude-fp", "", "Fingerprints to exclude (comma-separated)")
 	listInterfaces := flag.Bool("list-interfaces", false, "List available network interfaces")
 	listInterfacesShort := flag.Bool("L", false, "List available network interfaces (shorthand)")
+	enableAPI := flag.Bool("api", false, "Enable API server")
+	apiAddr := flag.String("api-addr", "0.0.0.0", "API server listen address")
+	apiPort := flag.Int("api-port", 53318, "API server port")
 	showVersion := flag.Bool("version", false, "Show version information")
 	showVersionShort := flag.Bool("v", false, "Show version information (shorthand)")
 	showHelp := flag.Bool("h", false, "Show help")
@@ -163,6 +169,21 @@ func main() {
 		"interfaces", interfaces,
 	)
 
+	// Start API server if enabled
+	var apiServer *APIServer
+	if *enableAPI {
+		apiServer = NewAPIServer(bridge, *apiAddr, *apiPort, logger)
+		go func() {
+			if err := apiServer.Start(ctx); err != nil {
+				logger.Error("API server error", "error", err)
+			}
+		}()
+		logger.Info("API server started",
+			"addr", *apiAddr,
+			"port", *apiPort,
+		)
+	}
+
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -170,6 +191,9 @@ func main() {
 	logger.Info("received signal, shutting down", "signal", sig)
 
 	// Graceful shutdown
+	if apiServer != nil {
+		apiServer.Stop()
+	}
 	bridge.Stop()
 
 	logger.Info("localsend-monitor stopped")

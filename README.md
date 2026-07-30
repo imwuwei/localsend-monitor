@@ -90,6 +90,9 @@ docker run --network host localsend-monitor -i eth0
 | `--offline-timeout` | `-t` | `"5m"` | 设备离线超时时间（如 `5m`、`30s`） |
 | `--cleanup-interval` | `-c` | `"1m"` | 清理间隔（如 `1m`、`30s`） |
 | `--exclude-fp` | 无 | `""` | 排除的指纹列表，逗号分隔 |
+| `--api` | 无 | `false` | 启用 API 服务（默认关闭） |
+| `--api-addr` | 无 | `"0.0.0.0"` | API 服务监听地址 |
+| `--api-port` | 无 | `53318` | API 服务端口 |
 | `--list-interfaces` | `-L` | `false` | 列出可用网卡 |
 | `--version` | `-v` | `false` | 显示版本信息 |
 
