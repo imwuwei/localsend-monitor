@@ -24,4 +24,4 @@ jobs:
         run: make test
 
       - name: Build All Platforms
-        run: make build-all VERSION=${{ github.sha }}
+        run: make build-all VERSION=$(date '+%y.%m.%d')

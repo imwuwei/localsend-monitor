@@ -18,33 +18,33 @@ https://github.com/localsend/localsend
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      localsend-monitor                           │
-│                                                                  │
+│                      localsend-monitor                          │
+│                                                                 │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐                     │
-│  │ Listener │   │ Listener │   │ Listener │   ...             │
-│  │  (eth0)  │   │  (wlan0) │   │  (eth1)  │                    │
+│  │ Listener │   │ Listener │   │ Listener │   ...               │
+│  │  (eth0)  │   │  (wlan0) │   │  (eth1)  │                     │
 │  └────┬─────┘   └────┬─────┘   └────┬─────┘                     │
-│       │              │              │                            │
-│       └──────────────┼──────────────┘                            │
-│                      │  Message Channels                         │
-│               ┌──────▼──────┐                                    │
-│               │ Multiplexer │  ← 消息汇聚与分发                  │
-│               └──────┬──────┘                                    │
-│                      │                                           │
-│               ┌──────▼──────┐                                    │
-│               │    Dedup    │  ← SHA256 去重（防环路）            │
-│               └──────┬──────┘                                    │
-│                      │                                           │
-│          ┌───────────┼───────────┐                               │
-│          │           │           │                               │
+│       │              │              │                           │
+│       └──────────────┼──────────────┘                           │
+│                      │  Message Channels                        │
+│               ┌──────▼──────┐                                   │
+│               │ Multiplexer │  ← 消息汇聚与分发                 │
+│               └──────┬──────┘                                   │
+│                      │                                          │
+│               ┌──────▼──────┐                                   │
+│               │    Dedup    │  ← SHA256 去重（防环路）          │
+│               └──────┬──────┘                                   │
+│                      │                                          │
+│          ┌───────────┼───────────┐                              │
+│          │           │           │                              │
 │   ┌──────▼─────┐ ┌───▼────┐ ┌───▼──────┐                        │
 │   │  Device    │ │ Sender │ │ Sender   │  ...                   │
 │   │  Tracker   │ │ (eth0) │ │ (wlan0)  │  ← RAW Socket 源IP保留 │
 │   └────────────┘ └────────┘ └──────────┘                        │
-│                                                                  │
-│   ┌──────────────┐                                               │
-│   │  API Server  │─── /api/devices, /api/stats, /api/health, ... │
-│   └──────────────┘                                               │
+│                                                                 │
+│   ┌──────────────┐                                              │
+│   │  API Server  │─── /api/devices, /api/stats, /api/health, ...│
+│   └──────────────┘                                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,6 +104,29 @@ go build -o localsend-monitor .
 ```
 
 ### Docker
+
+#### DockerHub 镜像拉取（推荐）
+
+```bash
+# 拉取最新镜像
+docker pull imwww/localsend-monitor
+
+# 拉取指定版本
+docker pull imwww/localsend-monitor:v1.0.0
+
+# 运行容器（使用 host 网络模式以访问多播）
+docker run --network host imwww/localsend-monitor -i eth0
+
+# 运行容器并启用 API
+docker run --network host imwww/localsend-monitor -i eth0 --api --api-port 53318
+```
+
+镜像支持以下架构：
+- `linux/amd64`
+- `linux/arm64`
+- `linux/arm`
+
+#### 本地构建
 
 ```bash
 # 先构建二进制文件
