@@ -2,6 +2,9 @@
 
 LocalSend 多播消息监听、桥接与转发工具。用于跨子网发现 LocalSend 设备，并提供 HTTP API 进行监控。
 
+LocalSend是一个跨平台的文件传输工具，详情请前往git仓库查看：
+https://github.com/localsend/localsend
+
 ## 功能特性
 
 - **多播消息监听** - 监听 LocalSend 的 UDP 多播发现消息，支持消息预过滤和速率限制
@@ -18,14 +21,14 @@ LocalSend 多播消息监听、桥接与转发工具。用于跨子网发现 Loc
 │                      localsend-monitor                           │
 │                                                                  │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐                     │
-│  │ Listener  │   │ Listener  │   │ Listener  │   ...             │
-│  │  (eth0)  │   │  (wlan0)  │   │  (eth1)   │                    │
+│  │ Listener │   │ Listener │   │ Listener │   ...             │
+│  │  (eth0)  │   │  (wlan0) │   │  (eth1)  │                    │
 │  └────┬─────┘   └────┬─────┘   └────┬─────┘                     │
 │       │              │              │                            │
 │       └──────────────┼──────────────┘                            │
 │                      │  Message Channels                         │
 │               ┌──────▼──────┐                                    │
-│               │  Multiplexer │  ← 消息汇聚与分发                  │
+│               │ Multiplexer │  ← 消息汇聚与分发                  │
 │               └──────┬──────┘                                    │
 │                      │                                           │
 │               ┌──────▼──────┐                                    │
@@ -35,8 +38,8 @@ LocalSend 多播消息监听、桥接与转发工具。用于跨子网发现 Loc
 │          ┌───────────┼───────────┐                               │
 │          │           │           │                               │
 │   ┌──────▼─────┐ ┌───▼────┐ ┌───▼──────┐                        │
-│   │  Device    │ │ Sender  │ │ Sender   │  ...                   │
-│   │  Tracker   │ │ (eth0)  │ │ (wlan0)  │  ← RAW Socket 源IP保留 │
+│   │  Device    │ │ Sender │ │ Sender   │  ...                   │
+│   │  Tracker   │ │ (eth0) │ │ (wlan0)  │  ← RAW Socket 源IP保留 │
 │   └────────────┘ └────────┘ └──────────┘                        │
 │                                                                  │
 │   ┌──────────────┐                                               │
